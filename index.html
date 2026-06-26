@@ -39,15 +39,32 @@
   th { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#4b5563; background:#f9fafb; }
   .subhead td { background:#f7f8fa; font-weight:800; color:#374151; }
   .chart { margin-top:22px; }
-  .person { display:grid; grid-template-columns:52px 320px minmax(0,1fr); gap:20px; align-items:center; margin:9px 0; }
+  .scenario-switch { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:0 0 12px; }
+  .scenario-btn { border:1px solid var(--line); background:#fff; border-radius:18px; padding:16px 14px; text-align:left; cursor:pointer; min-height:88px; transition:.15s ease; }
+  .scenario-btn:hover { border-color:#bfdbfe; }
+  .scenario-btn.active { border-color:#60a5fa; box-shadow:0 0 0 3px #dbeafe inset; background:#f8fbff; }
+  .scenario-btn b { display:block; font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:#374151; line-height:1.15; }
+  .scenario-btn span { display:block; margin-top:7px; font-size:12px; color:var(--muted); line-height:1.25; }
+  .selected-yield { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#fff; margin-bottom:22px; }
+  .selected-yield-head { padding:14px 16px; background:#f9fafb; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+  .selected-yield-head b { font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:#374151; }
+  .selected-yield-head span { display:block; color:var(--muted); font-size:12px; margin-top:3px; }
+  .yield-cards { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .yield-card { padding:18px 16px; border-right:1px solid var(--line); }
+  .yield-card:last-child { border-right:0; }
+  .yield-card .k { color:var(--muted); font-size:13px; margin-bottom:4px; }
+  .yield-card .v { font-size:28px; font-weight:850; letter-spacing:-.035em; }
+  .yield-card .s { color:var(--muted); font-size:12px; margin-top:4px; }
+  .person { display:grid; grid-template-columns:minmax(0,1fr) 52px 285px; gap:16px; align-items:center; margin:9px 0; width:100%; max-width:100%; }
   .avatar { width:52px; height:52px; border-radius:999px; background:#e8eef3; display:flex; align-items:center; justify-content:center; font-weight:850; color:#334155; font-size:15px; }
-  .dots { display:grid; grid-template-columns:repeat(50, 6px); gap:3px; max-width:760px; align-content:start; }
-  .dot { width:6px; height:6px; border-radius:50%; background:var(--blue); }
+  .dots { display:grid; grid-template-columns:repeat(50, minmax(0,1fr)); gap:3px; width:100%; max-width:100%; align-content:start; }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--blue); justify-self:center; }
   .dot.tax { background:var(--tax); }
   .dot.revenue { background:var(--revenue); }
   .avatar.revenue { color:#166534; background:#dcfce7; }
-  .meta b { display:block; font-size:16px; line-height:1.15; margin-bottom:3px; }
-  .meta span { display:block; color:var(--muted); font-size:12.5px; line-height:1.2; white-space:nowrap; }
+  .meta { min-width:0; overflow:hidden; }
+  .meta b { display:block; font-size:16px; line-height:1.15; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta span { display:block; color:var(--muted); font-size:12px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .note { margin-top:20px; color:var(--muted); font-size:12px; line-height:1.5; }
   .distrow { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; }
   .distcard { border:1px solid var(--line); background:#fff; border-radius:12px; padding:8px 8px 6px; min-width:0; }
@@ -69,10 +86,14 @@
     .layout { grid-template-columns:1fr; }
     .panel { position:static; }
     .summary { grid-template-columns:1fr 1fr; }
-    .person { grid-template-columns:42px 1fr; gap:10px 14px; }
+    .scenario-switch, .yield-cards { grid-template-columns:1fr; }
+    .yield-card { border-right:0; border-bottom:1px solid var(--line); }
+    .yield-card:last-child { border-bottom:0; }
+    .person { grid-template-columns:minmax(0,1fr) 42px; gap:10px 14px; }
     .avatar { width:42px; height:42px; }
-    .meta { grid-column:2; }
-    .dots { grid-column:2; }
+    .dots { grid-column:1 / -1; grid-row:1; }
+    .avatar { grid-column:1; grid-row:2; justify-self:start; }
+    .meta { grid-column:2; grid-row:2; }
   }
 </style>
 </head>
@@ -153,16 +174,22 @@
     </aside>
 
     <main>
-      <table>
-        <thead><tr><th>Scénář výběru</th><th>Všichni nad<br>1. prahem</th><th>2 270 osob<br>nad 30 mil. USD</th><th>Forbes 100</th></tr></thead>
-        <tbody id="yieldBody"></tbody>
-      </table>
+      <div class="scenario-switch" id="scenarioSwitch">
+        <button class="scenario-btn active" type="button" data-scenario="aboveFirst">
+          <b>Všichni nad<br>1. prahem</b>
+          <span id="scenarioAboveFirstMeta">modelový dopočet</span>
+        </button>
+        <button class="scenario-btn" type="button" data-scenario="hnw30">
+          <b>2 270 osob<br>nad 30 mil. USD</b>
+          <span>pevná skupina Knight Frank / Seznam Zprávy</span>
+        </button>
+        <button class="scenario-btn" type="button" data-scenario="forbes100">
+          <b>Forbes 100</b>
+          <span>jmenný seznam Forbesu</span>
+        </button>
+      </div>
 
-      <h2>Kontrola báze a předpisu</h2>
-      <table>
-        <thead><tr><th>Báze</th><th>Počet osob</th><th>Majetek celkem</th><th>Teoretická daň</th><th>Průměrná daň podle výběru</th></tr></thead>
-        <tbody id="baseBody"></tbody>
-      </table>
+      <div class="selected-yield" id="selectedYield"></div>
 
       <div class="legend">
         <span><i class="dotkey"></i> 1 tečka = 1 miliarda Kč</span>
@@ -193,6 +220,8 @@ const UBS_MILLIONAIRES = {
   countAbove1mUsd: 77000,
   thresholdUsdM: 1
 };
+
+let activeScenario = 'aboveFirst';
 
 function val(id) { return Number(document.getElementById(id).value || 0); }
 function params() {
@@ -347,7 +376,7 @@ function renderChart(p, grossForbes) {
     const meta = document.createElement('div'); meta.className = 'meta';
     const effectiveRate = d.wealth > 0 ? tax / d.wealth * 100 : 0;
     meta.innerHTML = `<b>#${d.rank} ${d.name}</b><span>${fmtBn(d.wealth)} • daň ${fmtTaxAmount(tax)} (${effectiveRate.toLocaleString('cs-CZ', {minimumFractionDigits:1, maximumFractionDigits:1})} %)</span>`;
-    row.appendChild(av); row.appendChild(meta); row.appendChild(dots);
+    row.appendChild(dots); row.appendChild(av); row.appendChild(meta);
     chart.appendChild(row);
   });
 }
@@ -434,6 +463,45 @@ function renderTaxSchedule(p) {
   </svg>`;
 }
 
+
+function scenarioLabel(key, aboveFirst) {
+  const firstThresholdLabel = aboveFirst.threshold >= 1
+    ? aboveFirst.threshold.toLocaleString('cs-CZ', {maximumFractionDigits:2}) + ' mld. Kč'
+    : (aboveFirst.threshold*1000).toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mil. Kč';
+  if (key === 'aboveFirst') return 'Všichni nad 1. prahem (' + firstThresholdLabel + ')';
+  if (key === 'hnw30') return '2 270 osob nad 30 mil. USD';
+  return 'Forbes 100';
+}
+
+function renderSelectedYield(stats, p) {
+  const el = document.getElementById('selectedYield');
+  const label = scenarioLabel(activeScenario, stats.aboveFirst);
+  const count = stats.selected.count;
+  const wealth = stats.selected.wealth;
+  const gross = stats.selected.gross;
+  const minYield = gross * p.minRate;
+  const realYield = gross * p.realRate;
+  const minEff = wealth > 0 ? minYield / wealth * 100 : 0;
+  const realEff = wealth > 0 ? realYield / wealth * 100 : 0;
+  const approx = activeScenario === 'forbes100' ? '' : 'cca ';
+  el.innerHTML = `
+    <div class="selected-yield-head">
+      <div><b>${label}</b><span>${fmtNum(count)} osob • ${approx}${fmtBn(wealth)} majetku • teoretická daň ${fmtBn(gross)}</span></div>
+    </div>
+    <div class="yield-cards">
+      <div class="yield-card">
+        <div class="k">Minimální výnos (${(p.minRate*100).toLocaleString('cs-CZ')} % teoretické daně)</div>
+        <div class="v">${fmtBn(minYield)}</div>
+        <div class="s">efektivně ${minEff.toLocaleString('cs-CZ', {maximumFractionDigits:2})} % majetku ročně</div>
+      </div>
+      <div class="yield-card">
+        <div class="k">Realistický výnos (${(p.realRate*100).toLocaleString('cs-CZ')} % teoretické daně)</div>
+        <div class="v">${fmtBn(realYield)}</div>
+        <div class="s">efektivně ${realEff.toLocaleString('cs-CZ', {maximumFractionDigits:2})} % majetku ročně</div>
+      </div>
+    </div>`;
+}
+
 function render(changedId) {
   syncCollectionSliders(changedId);
   const p = params();
@@ -447,23 +515,20 @@ function render(changedId) {
   const grossHnw = sumTax(hnwWealths, p);
   const aboveFirst = allAboveFirstThresholdStats(p, hnwWealths);
 
-  document.getElementById('yieldBody').innerHTML =
-    rowHtml(`Minimální výnos (${(p.minRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [aboveFirst.gross*p.minRate, grossHnw*p.minRate, grossForbes*p.minRate]) +
-    rowHtml(`Realistický výnos (${(p.realRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [aboveFirst.gross*p.realRate, grossHnw*p.realRate, grossForbes*p.realRate]);
-
-  const firstThresholdLabel = aboveFirst.threshold >= 1
-    ? aboveFirst.threshold.toLocaleString('cs-CZ', {maximumFractionDigits:2}) + ' mld. Kč'
-    : (aboveFirst.threshold*1000).toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mil. Kč';
-
-  document.getElementById('baseBody').innerHTML =
-    baseRow('Všichni nad<br>1. prahem (' + firstThresholdLabel + ')', aboveFirst.count, aboveFirst.wealth, aboveFirst.gross, p, true) +
-    baseRow('2 270 osob<br>nad 30 mil. USD', HNW30.count, hnwTotal, grossHnw, p, true) +
-    baseRow('Forbes 100', forbes.length, forbesBase, grossForbes, p);
+  const selectedMap = {
+    aboveFirst: {count: aboveFirst.count, wealth: aboveFirst.wealth, gross: aboveFirst.gross},
+    hnw30: {count: HNW30.count, wealth: hnwTotal, gross: grossHnw},
+    forbes100: {count: forbes.length, wealth: forbesBase, gross: grossForbes}
+  };
+  document.querySelectorAll('.scenario-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.scenario === activeScenario));
+  document.getElementById('scenarioAboveFirstMeta').textContent = `${fmtNum(aboveFirst.count)} osob • cca ${fmtBn(aboveFirst.wealth)}`;
+  renderSelectedYield({selected: selectedMap[activeScenario], aboveFirst}, p);
 
   renderTaxSchedule(p);
   renderChart(p, grossForbes);
 }
 
+document.querySelectorAll('.scenario-btn').forEach(btn => btn.addEventListener('click', () => { activeScenario = btn.dataset.scenario; render(); }));
 document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', () => render(el.id)));
 render();
 </script>
