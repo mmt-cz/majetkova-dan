@@ -56,6 +56,14 @@
   .distcard b { display:block; font-size:10px; line-height:1.15; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .distcard span { display:block; color:var(--muted); font-size:10px; margin-top:1px; }
   .pill { display:inline-block; border:1px solid var(--line); background:#fff; border-radius:999px; padding:3px 8px; font-size:12px; color:#4b5563; margin:2px 4px 2px 0; }
+
+  .tax-schedule { margin-top:14px; border:1px solid var(--line); background:#fff; border-radius:12px; padding:10px 10px 8px; overflow:hidden; }
+  .tax-schedule svg { width:100%; height:92px; display:block; }
+  .tax-schedule .axis { stroke:#cbd5e1; stroke-width:1; }
+  .tax-schedule .step { fill:none; stroke:#1f2937; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .tax-schedule .threshold { stroke:#93c5fd; stroke-width:1; stroke-dasharray:3 3; }
+  .tax-schedule text { font-size:9px; fill:#6b7280; font-family:inherit; }
+  .tax-schedule .rate-label { fill:#374151; font-weight:700; }
   a { color:#064f7f; }
   @media (max-width: 940px) {
     .layout { grid-template-columns:1fr; }
@@ -116,6 +124,7 @@
             <input id="r4" type="number" min="0" step="0.1" value="4.0">
           </div>
         </div>
+        <div class="tax-schedule" id="taxSchedule" aria-label="Graf marginální sazby podle bohatství"></div>
       </div>
 
 
@@ -133,18 +142,19 @@
       </div>
 
       <div class="note">
-        Graf zobrazuje majetek 100 nejbohatších podle Forbesu; světle modré tečky odpovídají modelované roční dani. Tabulky ukazují teoretickou daň a očekávaný výnos pro dvě skupiny: Forbes 100 nejbohatších Čechů a pevně danou skupinu nejbohatších 2 270 lidí s majetkem nad 30 milionů USD podle Knight Frank / Seznam Zpráv.
+        Graf zobrazuje majetek 100 nejbohatších podle Forbesu; světle modré tečky odpovídají modelované roční dani. Tabulky ukazují teoretickou daň a očekávaný výnos pro tři skupiny: všechny osoby nad prvním prahem, pevně danou skupinu nejbohatších 2 270 lidí s majetkem nad 30 milionů USD podle Knight Frank / Seznam Zpráv a Forbes 100 nejbohatších Čechů.
       </div>
 
       <div class="note">
         <span class="pill">Forbes 100: 3,803 bil. Kč</span>
+        <span class="pill">UBS: 77 tis. osob<br>nad 1 mil. USD</span>
         <span class="pill">Knight Frank: 2 270 osob<br>nad 30 mil. USD, cca 6,52 bil. Kč</span>
       </div>
     </aside>
 
     <main>
       <table>
-        <thead><tr><th>Scénář výběru</th><th>2 270 osob<br>nad 30 mil. USD</th><th>Forbes 100</th></tr></thead>
+        <thead><tr><th>Scénář výběru</th><th>Všichni nad<br>1. prahem</th><th>2 270 osob<br>nad 30 mil. USD</th><th>Forbes 100</th></tr></thead>
         <tbody id="yieldBody"></tbody>
       </table>
 
@@ -161,10 +171,10 @@
       <div class="chart" id="chart"></div>
 
       <div class="note">
-        <b>Metodika.</b> Forbes 100 bere jmenná data Forbesu. Skupina nad 30 mil. USD je pevně daná počtem 2 270 osob podle Knight Frank / Seznam Zpráv: prvních 100 osob bere Forbes, osoby 101–2 270 jsou dopočteny Paretovou křivkou ukotvenou mezi Forbes #100 a prahem 30 mil. USD. Sloupce nejsou aditivní: Forbes 100 je podmnožinou širší skupiny.
+        <b>Metodika.</b> Forbes 100 bere jmenná data Forbesu. Skupina nad 30 mil. USD je pevně daná počtem 2 270 osob podle Knight Frank / Seznam Zpráv: prvních 100 osob bere Forbes, osoby 101–2 270 jsou dopočteny Paretovou křivkou ukotvenou mezi Forbes #100 a prahem 30 mil. USD. Skupina nad 1. prahem je dopočtená dvousegmentově: mezi 1 mil. USD a 30 mil. USD podle UBS počtu milionářů a Knight Frank počtu osob nad 30 mil. USD, nad 30 mil. USD podle stejného horního ocasu jako širší skupina. Sloupce nejsou aditivní: Forbes 100 je podmnožinou skupiny 2 270 osob a ta je podmnožinou skupiny nad 1. prahem.
       </div>
       <div class="note">
-        Zdroje: Forbes, <a href="https://forbes.cz/lists/nc26/">100 nejbohatších Čechů 2026</a>; Seznam Zprávy / Knight Frank, článek o 2 270 Češích nad 30 mil. USD.
+        Zdroje: Forbes, <a href="https://forbes.cz/lists/nc26/">100 nejbohatších Čechů 2026</a>; Seznam Zprávy / Knight Frank, článek o 2 270 Češích nad 30 mil. USD; UBS Global Wealth Databook 2023, počet dospělých nad 1 mil. USD.
       </div>
     </main>
   </div>
@@ -177,6 +187,11 @@ const HNW30 = {
   count: 2270,
   thresholdUsdM: 30,
   articleThresholdCzkBn: 0.630
+};
+
+const UBS_MILLIONAIRES = {
+  countAbove1mUsd: 77000,
+  thresholdUsdM: 1
 };
 
 function val(id) { return Number(document.getElementById(id).value || 0); }
@@ -228,6 +243,75 @@ function hnwSeries(thresholdBn) {
     out.push(w100 * Math.pow(rank / known.length, -1 / alpha));
   }
   return out.map(w => Math.max(w, thresholdBn)).sort((a,b)=>b-a);
+}
+
+
+function paretoAlphaBetweenCounts(nLow, nHigh, ratioHighToLow) {
+  return Math.log(nLow / nHigh) / Math.log(ratioHighToLow);
+}
+
+function countAboveInMidTail(xBn, p) {
+  const x1 = UBS_MILLIONAIRES.thresholdUsdM * p.usdczk / 1000;
+  const x30 = HNW30.thresholdUsdM * p.usdczk / 1000;
+  const alpha = paretoAlphaBetweenCounts(UBS_MILLIONAIRES.countAbove1mUsd, HNW30.count, x30 / x1);
+  if (xBn <= x1) return UBS_MILLIONAIRES.countAbove1mUsd;
+  if (xBn >= x30) return HNW30.count * Math.pow(xBn / x30, -alpha);
+  return UBS_MILLIONAIRES.countAbove1mUsd * Math.pow(xBn / x1, -alpha);
+}
+
+function midTailCountBetween(lowBn, highBn, p) {
+  const x1 = UBS_MILLIONAIRES.thresholdUsdM * p.usdczk / 1000;
+  const x30 = HNW30.thresholdUsdM * p.usdczk / 1000;
+  const low = Math.max(lowBn, x1);
+  const high = Math.min(highBn, x30);
+  if (high <= low) return 0;
+  return countAboveInMidTail(low, p) - countAboveInMidTail(high, p);
+}
+
+function midTailWealthBetween(lowBn, highBn, p) {
+  const x1 = UBS_MILLIONAIRES.thresholdUsdM * p.usdczk / 1000;
+  const x30 = HNW30.thresholdUsdM * p.usdczk / 1000;
+  const low = Math.max(lowBn, x1);
+  const high = Math.min(highBn, x30);
+  if (high <= low) return 0;
+  const alpha = paretoAlphaBetweenCounts(UBS_MILLIONAIRES.countAbove1mUsd, HNW30.count, x30 / x1);
+  const c = UBS_MILLIONAIRES.countAbove1mUsd * Math.pow(x1, alpha);
+  if (Math.abs(alpha - 1) < 1e-9) return alpha * c * Math.log(high / low);
+  return alpha * c * (Math.pow(high, 1 - alpha) - Math.pow(low, 1 - alpha)) / (1 - alpha);
+}
+
+function allAboveFirstThresholdStats(p, hnwWealths) {
+  const thresholds = p.brackets.map(b => b.t).sort((a,b)=>a-b);
+  const first = thresholds[0] || 0;
+  const x1 = UBS_MILLIONAIRES.thresholdUsdM * p.usdczk / 1000;
+  const x30 = HNW30.thresholdUsdM * p.usdczk / 1000;
+  const low = Math.max(first, x1);
+
+  const hnwFiltered = hnwWealths.filter(w => w >= low);
+  const hnwCount = hnwFiltered.length;
+  const hnwWealth = hnwFiltered.reduce((s,w)=>s+w,0);
+  const midCount = low < x30 ? midTailCountBetween(low, x30, p) : 0;
+  const midWealth = low < x30 ? midTailWealthBetween(low, x30, p) : 0;
+
+  let gross = 0;
+  let prevRate = 0;
+  for (const b of p.brackets) {
+    const incRate = b.r - prevRate;
+    if (incRate !== 0) {
+      const cutoff = Math.max(low, b.t);
+      const hnwExcess = hnwFiltered.reduce((s,w)=>s+Math.max(0, w-b.t),0);
+      let midExcess = 0;
+      if (cutoff < x30) {
+        const wealthAboveCutoff = midTailWealthBetween(cutoff, x30, p);
+        const countAboveCutoff = midTailCountBetween(cutoff, x30, p);
+        midExcess = wealthAboveCutoff - b.t * countAboveCutoff;
+      }
+      gross += incRate * (hnwExcess + midExcess);
+    }
+    prevRate = b.r;
+  }
+
+  return {count: Math.round(hnwCount + midCount), wealth: hnwWealth + midWealth, gross, threshold: first};
 }
 
 function fmtUnitLabel(unitBn) {
@@ -294,6 +378,62 @@ function syncCollectionSliders(changedId) {
   document.getElementById('realRateOut').textContent = realVal.toLocaleString('cs-CZ');
 }
 
+
+function renderTaxSchedule(p) {
+  const el = document.getElementById('taxSchedule');
+  if (!el) return;
+  const brackets = p.brackets.filter(b => isFinite(b.t) && b.t > 0 && isFinite(b.r));
+  if (!brackets.length) { el.innerHTML = ''; return; }
+
+  const minX = Math.max(0.01, Math.min(...brackets.map(b => b.t)) / 3);
+  const maxX = Math.max(...brackets.map(b => b.t)) * 3;
+  const maxRate = Math.max(0.01, ...brackets.map(b => b.r));
+  const W = 320, H = 92;
+  const m = {l:28, r:8, t:10, b:23};
+  const innerW = W - m.l - m.r;
+  const innerH = H - m.t - m.b;
+  const logMin = Math.log10(minX);
+  const logMax = Math.log10(maxX);
+  const x = v => m.l + (Math.log10(Math.max(v, minX)) - logMin) / (logMax - logMin) * innerW;
+  const y = r => m.t + innerH - (r / maxRate) * innerH;
+  const fmtT = v => v >= 1 ? v.toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mld.' : (v*1000).toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mil.';
+
+  const pts = [];
+  let prevT = minX;
+  let currentRate = 0;
+  for (const b of brackets) {
+    const bx = Math.min(Math.max(b.t, minX), maxX);
+    pts.push([x(prevT), y(currentRate)]);
+    pts.push([x(bx), y(currentRate)]);
+    currentRate = b.r;
+    pts.push([x(bx), y(currentRate)]);
+    prevT = bx;
+  }
+  pts.push([x(maxX), y(currentRate)]);
+  const d = pts.map((p,i)=>(i?'L':'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+
+  const thresholdLines = brackets.map((b,i) => {
+    const bx = x(b.t);
+    const labelY = i % 2 === 0 ? H - 8 : H - 16;
+    return `<line class="threshold" x1="${bx.toFixed(1)}" y1="${m.t}" x2="${bx.toFixed(1)}" y2="${m.t+innerH}"/>` +
+           `<text x="${bx.toFixed(1)}" y="${labelY}" text-anchor="middle">${fmtT(b.t)}</text>`;
+  }).join('');
+
+  const rateLabels = brackets.map((b,i) => {
+    const nextT = i + 1 < brackets.length ? brackets[i+1].t : maxX;
+    const mid = Math.sqrt(Math.max(b.t, minX) * nextT);
+    return `<text class="rate-label" x="${x(mid).toFixed(1)}" y="${(y(b.r)-4).toFixed(1)}" text-anchor="middle">${(b.r*100).toLocaleString('cs-CZ', {maximumFractionDigits:1})} %</text>`;
+  }).join('');
+
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Marginální sazba podle logaritmické osy bohatství">
+    <line class="axis" x1="${m.l}" y1="${m.t+innerH}" x2="${W-m.r}" y2="${m.t+innerH}"/>
+    <line class="axis" x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t+innerH}"/>
+    ${thresholdLines}
+    <path class="step" d="${d}"/>
+    ${rateLabels}
+  </svg>`;
+}
+
 function render(changedId) {
   syncCollectionSliders(changedId);
   const p = params();
@@ -305,15 +445,22 @@ function render(changedId) {
   const hnwTotal = hnwWealths.reduce((s,w)=>s+w,0);
   const grossForbes = sumTax(forbesWealths, p);
   const grossHnw = sumTax(hnwWealths, p);
+  const aboveFirst = allAboveFirstThresholdStats(p, hnwWealths);
 
   document.getElementById('yieldBody').innerHTML =
-    rowHtml(`Minimální výnos (${(p.minRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [grossHnw*p.minRate, grossForbes*p.minRate]) +
-    rowHtml(`Realistický výnos (${(p.realRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [grossHnw*p.realRate, grossForbes*p.realRate]);
+    rowHtml(`Minimální výnos (${(p.minRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [aboveFirst.gross*p.minRate, grossHnw*p.minRate, grossForbes*p.minRate]) +
+    rowHtml(`Realistický výnos (${(p.realRate*100).toLocaleString('cs-CZ')} % teoretické daně)`, [aboveFirst.gross*p.realRate, grossHnw*p.realRate, grossForbes*p.realRate]);
+
+  const firstThresholdLabel = aboveFirst.threshold >= 1
+    ? aboveFirst.threshold.toLocaleString('cs-CZ', {maximumFractionDigits:2}) + ' mld. Kč'
+    : (aboveFirst.threshold*1000).toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mil. Kč';
 
   document.getElementById('baseBody').innerHTML =
+    baseRow('Všichni nad<br>1. prahem (' + firstThresholdLabel + ')', aboveFirst.count, aboveFirst.wealth, aboveFirst.gross, p, true) +
     baseRow('2 270 osob<br>nad 30 mil. USD', HNW30.count, hnwTotal, grossHnw, p, true) +
     baseRow('Forbes 100', forbes.length, forbesBase, grossForbes, p);
 
+  renderTaxSchedule(p);
   renderChart(p, grossForbes);
 }
 
