@@ -39,12 +39,13 @@
   th { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#4b5563; background:#f9fafb; }
   .subhead td { background:#f7f8fa; font-weight:800; color:#374151; }
   .chart { margin-top:22px; }
-  .scenario-switch { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:0 0 12px; }
-  .scenario-btn { border:1px solid var(--line); background:#fff; border-radius:18px; padding:16px 14px; text-align:left; cursor:pointer; min-height:88px; transition:.15s ease; }
+  .scenario-switch { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin:0 0 12px; }
+  .scenario-btn { border:1px solid var(--line); background:#fff; border-radius:18px; padding:16px 14px; text-align:left; cursor:pointer; min-height:112px; transition:.15s ease; }
   .scenario-btn:hover { border-color:#bfdbfe; }
   .scenario-btn.active { border-color:#60a5fa; box-shadow:0 0 0 3px #dbeafe inset; background:#f8fbff; }
   .scenario-btn b { display:block; font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:#374151; line-height:1.15; }
-  .scenario-btn span { display:block; margin-top:7px; font-size:12px; color:var(--muted); line-height:1.25; }
+  .scenario-btn span { display:block; margin-top:7px; font-size:12px; color:var(--muted); line-height:1.28; }
+  .scenario-btn .metric { color:#111827; font-weight:750; }
   .selected-yield { border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#fff; margin-bottom:22px; }
   .selected-yield-head { padding:14px 16px; background:#f9fafb; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
   .selected-yield-head b { font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:#374151; }
@@ -161,16 +162,6 @@
           </div>
         </div>
       </div>
-
-      <div class="note">
-        Graf zobrazuje majetek 100 nejbohatších podle Forbesu; světle modré tečky odpovídají modelované roční dani. Tabulky ukazují teoretickou daň a očekávaný výnos pro tři skupiny: všechny osoby nad prvním prahem, pevně danou skupinu nejbohatších 2 270 lidí s majetkem nad 30 milionů USD podle Knight Frank / Seznam Zpráv a Forbes 100 nejbohatších Čechů.
-      </div>
-
-      <div class="note">
-        <span class="pill">Forbes 100: 3,803 bil. Kč</span>
-        <span class="pill">UBS: 77 tis. osob<br>nad 1 mil. USD</span>
-        <span class="pill">Knight Frank: 2 270 osob<br>nad 30 mil. USD, cca 6,52 bil. Kč</span>
-      </div>
     </aside>
 
     <main>
@@ -179,13 +170,9 @@
           <b>Všichni nad<br>1. prahem</b>
           <span id="scenarioAboveFirstMeta">modelový dopočet</span>
         </button>
-        <button class="scenario-btn" type="button" data-scenario="hnw30">
-          <b>2 270 osob<br>nad 30 mil. USD</b>
-          <span>pevná skupina Knight Frank / Seznam Zprávy</span>
-        </button>
         <button class="scenario-btn" type="button" data-scenario="forbes100">
           <b>Forbes 100</b>
-          <span>jmenný seznam Forbesu</span>
+          <span id="scenarioForbesMeta">jmenný seznam Forbesu</span>
         </button>
       </div>
 
@@ -198,10 +185,7 @@
       <div class="chart" id="chart"></div>
 
       <div class="note">
-        <b>Metodika.</b> Forbes 100 bere jmenná data Forbesu. Skupina nad 30 mil. USD je pevně daná počtem 2 270 osob podle Knight Frank / Seznam Zpráv: prvních 100 osob bere Forbes, osoby 101–2 270 jsou dopočteny Paretovou křivkou ukotvenou mezi Forbes #100 a prahem 30 mil. USD. Skupina nad 1. prahem je dopočtená dvousegmentově: mezi 1 mil. USD a 30 mil. USD podle UBS počtu milionářů a Knight Frank počtu osob nad 30 mil. USD, nad 30 mil. USD podle stejného horního ocasu jako širší skupina. Sloupce nejsou aditivní: Forbes 100 je podmnožinou skupiny 2 270 osob a ta je podmnožinou skupiny nad 1. prahem.
-      </div>
-      <div class="note">
-        Zdroje: Forbes, <a href="https://forbes.cz/lists/nc26/">100 nejbohatších Čechů 2026</a>; Seznam Zprávy / Knight Frank, článek o 2 270 Češích nad 30 mil. USD; UBS Global Wealth Databook 2023, počet dospělých nad 1 mil. USD.
+        Zdroje: Forbes <a href="https://forbes.cz/lists/nc26/">100 nejbohatších Čechů 2026</a>; UBS Global Wealth Databook 2023.
       </div>
     </main>
   </div>
@@ -254,16 +238,13 @@ function initials(name) { return name.split(/\s+/).filter(Boolean).slice(0,2).ma
 
 
 function impliedParetoAlpha(thresholdBn) {
-  // α je pevně dopočtené z Forbes #100, počtu 2 270 osob a prahu 30 mil. USD:
-  // w(rank) = w100 * (rank / 100)^(-1/α), takže w(2270) = threshold.
+  // Horní ocas je dopočten Paretovou křivkou mezi hranicí Forbes 100 a externě kotveným horním prahem.
   const w100 = forbes[forbes.length - 1].wealth;
   return Math.log(HNW30.count / forbes.length) / Math.log(w100 / thresholdBn);
 }
 
 function hnwSeries(thresholdBn) {
-  // Konzistentní horní ocas:
-  // 1) Forbes 100 jsou skutečná jmenná data.
-  // 2) Ranks 101–2270 jsou Paretův dopočet ukotvený Forbes #100 a prahem 30 mil. USD.
+  // Konzistentní horní ocas: Forbes 100 jsou skutečná jmenná data, zbytek horního ocasu je modelový Pareto dopočet.
   const known = forbes.map(d => d.wealth).sort((a,b)=>b-a);
   const w100 = known[known.length - 1] || thresholdBn;
   const alpha = impliedParetoAlpha(thresholdBn);
@@ -469,7 +450,6 @@ function scenarioLabel(key, aboveFirst) {
     ? aboveFirst.threshold.toLocaleString('cs-CZ', {maximumFractionDigits:2}) + ' mld. Kč'
     : (aboveFirst.threshold*1000).toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' mil. Kč';
   if (key === 'aboveFirst') return 'Všichni nad 1. prahem (' + firstThresholdLabel + ')';
-  if (key === 'hnw30') return '2 270 osob nad 30 mil. USD';
   return 'Forbes 100';
 }
 
@@ -485,9 +465,6 @@ function renderSelectedYield(stats, p) {
   const realEff = wealth > 0 ? realYield / wealth * 100 : 0;
   const approx = activeScenario === 'forbes100' ? '' : 'cca ';
   el.innerHTML = `
-    <div class="selected-yield-head">
-      <div><b>${label}</b><span>${fmtNum(count)} osob • ${approx}${fmtBn(wealth)} majetku • teoretická daň ${fmtBn(gross)}</span></div>
-    </div>
     <div class="yield-cards">
       <div class="yield-card">
         <div class="k">Minimální výnos (${(p.minRate*100).toLocaleString('cs-CZ')} % teoretické daně)</div>
@@ -517,11 +494,12 @@ function render(changedId) {
 
   const selectedMap = {
     aboveFirst: {count: aboveFirst.count, wealth: aboveFirst.wealth, gross: aboveFirst.gross},
-    hnw30: {count: HNW30.count, wealth: hnwTotal, gross: grossHnw},
     forbes100: {count: forbes.length, wealth: forbesBase, gross: grossForbes}
   };
+  if (!selectedMap[activeScenario]) activeScenario = 'aboveFirst';
   document.querySelectorAll('.scenario-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.scenario === activeScenario));
-  document.getElementById('scenarioAboveFirstMeta').textContent = `${fmtNum(aboveFirst.count)} osob • cca ${fmtBn(aboveFirst.wealth)}`;
+  document.getElementById('scenarioAboveFirstMeta').innerHTML = `<span class="metric">${fmtNum(aboveFirst.count)} osob • cca ${fmtBn(aboveFirst.wealth)}</span><br>teoretická daň ${fmtBn(aboveFirst.gross)}`;
+  document.getElementById('scenarioForbesMeta').innerHTML = `<span class="metric">${fmtNum(forbes.length)} osob • ${fmtBn(forbesBase)}</span><br>teoretická daň ${fmtBn(grossForbes)}`;
   renderSelectedYield({selected: selectedMap[activeScenario], aboveFirst}, p);
 
   renderTaxSchedule(p);
